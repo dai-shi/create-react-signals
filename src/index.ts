@@ -50,7 +50,7 @@ export function createReactSignals<Args extends object[]>(
           if (typeof value === 'function') {
             return wrapProxy(
               sub,
-              () => value(...args),
+              () => (get() as any)(...args),
               () => {
                 throw new Error('Cannot set a value');
               },
