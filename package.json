@@ -1,6 +1,6 @@
 {
   "name": "create-react-signals",
-  "description": "A util function to create signals for React",
+  "description": "A factory function to create signals for React",
   "version": "0.1.0",
   "author": "Daishi Kato",
   "repository": {

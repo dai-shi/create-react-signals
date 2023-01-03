@@ -1,6 +1,6 @@
 # create-react-signals
 
-A util function to create signals for React
+A factory function to create signals for React
 
 This is an internal library for:
 - [jotai-signal](https://github.com/jotai-labs/jotai-signal)
