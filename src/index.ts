@@ -68,7 +68,7 @@ export function createReactSignals<Args extends object[]>(
 
   const cache1 = new WeakMap();
 
-  const getSignal = (...args: Args): Signal => {
+  const getSignal = (...args: Args): unknown => {
     let cache = cache1;
     for (let i = 0; i < args.length - 1; ++i) {
       const arg = args[i] as object;

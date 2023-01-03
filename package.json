@@ -26,9 +26,8 @@
     "dist"
   ],
   "scripts": {
-    "compile": "run-s compile:index compile:jsx-runtime",
-    "compile:index": "microbundle build -f modern,umd --globals react=React",
-    "postcompile:index": "cp dist/index.modern.mjs dist/index.modern.js && cp dist/index.modern.mjs.map dist/index.modern.js.map",
+    "compile": "microbundle build -f modern,umd --globals react=React",
+    "postcompile": "cp dist/index.modern.mjs dist/index.modern.js && cp dist/index.modern.mjs.map dist/index.modern.js.map",
     "test": "run-s eslint tsc-test jest",
     "eslint": "eslint --ext .js,.ts,.tsx .",
     "jest": "jest",
