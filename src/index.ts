@@ -108,6 +108,102 @@ export function createReactSignals<Args extends object[]>(
     return value;
   };
 
+  // ----------------------------------------------------------------------
+
+  // LIMITATION: this is just guessing from the first value
+  const isDisplayableSignal = (sig: Signal) => {
+    try {
+      const v = readSignal(sig);
+      return typeof v === 'string' || typeof v === 'number';
+    } catch (e) {
+      return false;
+    }
+  };
+
+  const removeSignals = <T>(t: T, signalsToRemove: Signal[]): T => {
+    const remove = (xa: [T]): [T] | [] => {
+      const [x] = xa;
+      if (signalsToRemove.includes(x as Signal)) {
+        return [];
+      }
+      if (Array.isArray(x)) {
+        const x2 = x.flatMap((item) => remove([item]));
+        return x2.length === x.length && x2.every((item, i) => item === x[i])
+          ? xa
+          : [x2 as T];
+      }
+      if (typeof x === 'object' && x !== null) {
+        const entries = Object.entries(x);
+        const entries2 = entries.flatMap(([key, value]) => {
+          const value2 = remove([value]);
+          return value2.length === 0 ? [] : [[key, value2[0]] as const];
+        });
+        return entries2.length === entries.length &&
+          entries2.every(([k, v]) => v === (x as Record<string, unknown>)[k])
+          ? xa
+          : [Object.fromEntries(entries2) as T];
+      }
+      return xa;
+    };
+    const result = remove([t]);
+    return result.length ? result[0] : t;
+  };
+
+  const register = (
+    children: unknown,
+    className: unknown,
+    style: unknown,
+    rest: {
+      [key: string]: unknown;
+    },
+  ) => {
+    const unsubs: (() => void)[] = [];
+    return (instance: any) => {
+      unsubs.splice(0).forEach((unsub) => unsub());
+      if (!instance) {
+        return;
+      }
+      if (isSignal(children)) {
+        unsubs.push(
+          subscribeSignal(children, () => {
+            instance.textContent = readSignal(children);
+          }),
+        );
+      }
+      if (isSignal(className)) {
+        unsubs.push(
+          subscribeSignal(className, () => {
+            instance.className = readSignal(className);
+          }),
+        );
+      }
+      if (style) {
+        Object.entries(style).forEach(([key, val]) => {
+          if (isSignal(val))
+            unsubs.push(
+              subscribeSignal(val, () => {
+                const v = readSignal(val);
+                instance.style[key] = typeof v === 'number' ? `${v}px` : v;
+              }),
+            );
+        });
+      }
+      Object.entries(rest).forEach(([key, val]) => {
+        if (isSignal(val))
+          unsubs.push(
+            subscribeSignal(val, () => {
+              const v = readSignal(val);
+              if (instance.setAttribute && typeof v === 'string') {
+                instance.setAttribute(key, v);
+              } else {
+                instance[key] = v;
+              }
+            }),
+          );
+      });
+    };
+  };
+
   const useMemoList = <T>(list: T[], compareFn = (a: T, b: T) => a === b) => {
     const [state, setState] = useState(list);
     const listChanged =
@@ -185,9 +281,31 @@ export function createReactSignals<Args extends object[]>(
       isSignal(child) ? [child] : [],
     );
     const signalsInProps = findAllSignals(props);
+
+    // case 1: no signals
     if (!signalsInChildren.length && !signalsInProps.length) {
       return createElementOrig(type, props, ...children);
     }
+
+    // case 2: only displayable signals
+    if (
+      typeof type === 'string' &&
+      signalsInChildren.length <= 1 &&
+      signalsInChildren.every(isDisplayableSignal) &&
+      signalsInProps.every(isDisplayableSignal)
+    ) {
+      const { className, style, ...rest } = props;
+      return createElementOrig(
+        type,
+        {
+          ...removeSignals(props, signalsInProps),
+          ref: register(children, className, style, rest),
+        },
+        ...removeSignals(children, signalsInChildren),
+      );
+    }
+
+    // case 3: signals including non-displayable ones
     const getChildren = () =>
       signalsInChildren.length
         ? children.map((child) => (isSignal(child) ? readSignal(child) : child))
