@@ -120,7 +120,7 @@ export function createReactSignals<Args extends object[]>(
     }
   };
 
-  const removeSignals = <T>(t: T, signalsToRemove: Signal[]): T => {
+  const removeSignals = <T>(target: T, signalsToRemove: Signal[]): T => {
     const remove = (xa: [T]): [T] | [] => {
       const [x] = xa;
       if (signalsToRemove.includes(x as Signal)) {
@@ -145,8 +145,8 @@ export function createReactSignals<Args extends object[]>(
       }
       return xa;
     };
-    const result = remove([t]);
-    return result.length ? result[0] : t;
+    const result = remove([target]);
+    return result.length ? result[0] : target;
   };
 
   const register = (
