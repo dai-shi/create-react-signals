@@ -9,10 +9,12 @@ import type { ReactNode } from 'react';
 type Unsubscribe = () => void;
 type Subscribe = (callback: () => void) => Unsubscribe;
 type GetValue = () => unknown;
-type SetValue = (path: unknown[], value: unknown) => void;
+type SetValue = (path: (string | symbol)[], value: unknown) => void;
 
 export function createReactSignals<Args extends object[]>(
   createSignal: (...args: Args) => [Subscribe, GetValue, SetValue],
+  valueProp?: string | symbol,
+  fallbackValueProp?: string | symbol,
   handlePromise?: (promise: Promise<unknown>) => unknown,
 ) {
   const SIGNAL = Symbol('REACT_SIGNAL');
@@ -31,6 +33,12 @@ export function createReactSignals<Args extends object[]>(
           if (prop === SIGNAL) {
             return [sub, get, set];
           }
+          if (prop === valueProp) {
+            return get();
+          }
+          if (valueProp && prop === fallbackValueProp) {
+            prop = valueProp;
+          }
           return wrapProxy(
             sub,
             () => {
@@ -45,21 +53,21 @@ export function createReactSignals<Args extends object[]>(
             },
           );
         },
+        set(_target, prop, value) {
+          if (prop === valueProp) {
+            set([], value);
+            return true;
+          }
+          return false;
+        },
         apply(_target, _thisArg, args) {
-          const value = get();
-          if (typeof value === 'function') {
-            return wrapProxy(
-              sub,
-              () => (get() as any)(...args),
-              () => {
-                throw new Error('Cannot set a value');
-              },
-            );
-          }
-          if (args.length === 0) {
-            return value;
-          }
-          return set([], args[0]);
+          return wrapProxy(
+            sub,
+            () => (get() as any)(...args),
+            () => {
+              throw new Error('Cannot set a value');
+            },
+          );
         },
       },
     );
