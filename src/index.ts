@@ -121,10 +121,20 @@ export function createReactSignals<Args extends object[]>(
   };
 
   const removeSignals = <T>(target: T, signalsToRemove: Signal[]): T => {
+    const seen = new WeakSet();
     const remove = (xa: [T]): [T] | [] => {
       const [x] = xa;
-      if (signalsToRemove.includes(x as Signal)) {
-        return [];
+      if (typeof x === 'object' && x !== null) {
+        if (seen.has(x)) {
+          return xa;
+        }
+        seen.add(x);
+      }
+      if (isSignal(x)) {
+        if (signalsToRemove.includes(x)) {
+          return [];
+        }
+        return xa;
       }
       if (Array.isArray(x)) {
         const x2 = x.flatMap((item) => remove([item]));
