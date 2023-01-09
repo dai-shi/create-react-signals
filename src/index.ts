@@ -123,35 +123,45 @@ export function createReactSignals<Args extends object[]>(
     return [];
   };
 
-  const fillAllSignalValues = <T>(x: T): T => {
-    if (isSignal(x)) {
-      return readSignal(x) as T;
-    }
-    if (Array.isArray(x)) {
-      let changed = false;
-      const x2 = x.map((item) => {
-        const item2 = fillAllSignalValues(item);
-        if (item !== item2) {
-          changed = true; // HACK side effect
+  const fillAllSignalValues = <T>(target: T): T => {
+    const seen = new WeakSet();
+    const fill = (x: T): T => {
+      if (typeof x === 'object' && x !== null) {
+        if (seen.has(x)) {
+          return x;
         }
-        return item2;
-      });
-      return changed ? (x2 as typeof x) : x;
-    }
-    if (typeof x === 'object' && x !== null) {
-      let changed = false;
-      const x2 = Object.fromEntries(
-        Object.entries(x).map(([key, value]) => {
-          const value2 = fillAllSignalValues(value);
-          if (value !== value2) {
+        seen.add(x);
+      }
+      if (isSignal(x)) {
+        return readSignal(x) as T;
+      }
+      if (Array.isArray(x)) {
+        let changed = false;
+        const x2 = x.map((item) => {
+          const item2 = fill(item);
+          if (item !== item2) {
             changed = true; // HACK side effect
           }
-          return [key, value2];
-        }),
-      );
-      return changed ? (x2 as typeof x) : x;
-    }
-    return x;
+          return item2;
+        });
+        return changed ? (x2 as typeof x) : x;
+      }
+      if (typeof x === 'object' && x !== null) {
+        let changed = false;
+        const x2 = Object.fromEntries(
+          Object.entries(x).map(([key, value]) => {
+            const value2 = fill(value);
+            if (value !== value2) {
+              changed = true; // HACK side effect
+            }
+            return [key, value2];
+          }),
+        );
+        return changed ? (x2 as typeof x) : x;
+      }
+      return x;
+    };
+    return fill(target);
   };
 
   const removeAllSignals = <T>(target: T): T => {
