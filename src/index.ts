@@ -300,7 +300,8 @@ export function createReactSignals<Args extends object[]>(
     // case 2: only displayable signals
     if (
       typeof type === 'string' &&
-      signalsInChildren.length <= 1 &&
+      (signalsInChildren.length === 0 ||
+        (signalsInChildren.length === 1 && children.length === 1)) &&
       signalsInChildren.every(isDisplayableSignal) &&
       signalsInProps.every(isDisplayableSignal)
     ) {
