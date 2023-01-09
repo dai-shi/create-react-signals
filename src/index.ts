@@ -219,6 +219,7 @@ export function createReactSignals<Args extends object[]>(
         signalsInChildren.forEach((sig) =>
           unsubs.push(subscribeSignal(sig, callback)),
         );
+        callback();
       }
       Object.entries(props).forEach(([key, val]) => {
         const sigs = signalsInProps[key];
@@ -240,6 +241,7 @@ export function createReactSignals<Args extends object[]>(
             }
           };
           sigs.forEach((sig) => unsubs.push(subscribeSignal(sig, callback)));
+          callback();
         }
       });
     };
@@ -294,7 +296,11 @@ export function createReactSignals<Args extends object[]>(
     }
 
     // case 2: uncontrolled
-    if (typeof type === 'string') {
+    if (
+      typeof type === 'string' &&
+      (!signalsInChildren.length ||
+        children.every((c) => typeof c === 'string' || typeof c === 'number'))
+    ) {
       return createElementOrig(
         type,
         {
