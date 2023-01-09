@@ -110,138 +110,6 @@ export function createReactSignals<Args extends object[]>(
 
   // ----------------------------------------------------------------------
 
-  // LIMITATION: this is just guessing from the first value
-  const isDisplayableSignal = (sig: Signal) => {
-    try {
-      const v = readSignal(sig);
-      return typeof v === 'string' || typeof v === 'number';
-    } catch (e) {
-      return false;
-    }
-  };
-
-  const removeSignals = <T>(target: T, signalsToRemove: Signal[]): T => {
-    const seen = new WeakSet();
-    const remove = (xa: [T]): [T] | [] => {
-      const [x] = xa;
-      if (typeof x === 'object' && x !== null) {
-        if (seen.has(x)) {
-          return xa;
-        }
-        seen.add(x);
-      }
-      if (isSignal(x)) {
-        if (signalsToRemove.includes(x)) {
-          return [];
-        }
-        return xa;
-      }
-      if (Array.isArray(x)) {
-        const x2 = x.flatMap((item) => remove([item]));
-        return x2.length === x.length && x2.every((item, i) => item === x[i])
-          ? xa
-          : [x2 as T];
-      }
-      if (typeof x === 'object' && x !== null) {
-        const entries = Object.entries(x);
-        const entries2 = entries.flatMap(([key, value]) => {
-          const value2 = remove([value]);
-          return value2.length === 0 ? [] : [[key, value2[0]] as const];
-        });
-        return entries2.length === entries.length &&
-          entries2.every(([k, v]) => v === (x as Record<string, unknown>)[k])
-          ? xa
-          : [Object.fromEntries(entries2) as T];
-      }
-      return xa;
-    };
-    const result = remove([target]);
-    return result.length ? result[0] : target;
-  };
-
-  const register = (
-    children: unknown,
-    className: unknown,
-    style: unknown,
-    rest: {
-      [key: string]: unknown;
-    },
-  ) => {
-    const unsubs: (() => void)[] = [];
-    return (instance: any) => {
-      unsubs.splice(0).forEach((unsub) => unsub());
-      if (!instance) {
-        return;
-      }
-      if (isSignal(children)) {
-        unsubs.push(
-          subscribeSignal(children, () => {
-            instance.textContent = readSignal(children);
-          }),
-        );
-      }
-      if (isSignal(className)) {
-        unsubs.push(
-          subscribeSignal(className, () => {
-            instance.className = readSignal(className);
-          }),
-        );
-      }
-      if (style) {
-        Object.entries(style).forEach(([key, val]) => {
-          if (isSignal(val))
-            unsubs.push(
-              subscribeSignal(val, () => {
-                const v = readSignal(val);
-                instance.style[key] = typeof v === 'number' ? `${v}px` : v;
-              }),
-            );
-        });
-      }
-      Object.entries(rest).forEach(([key, val]) => {
-        if (isSignal(val))
-          unsubs.push(
-            subscribeSignal(val, () => {
-              const v = readSignal(val);
-              if (instance.setAttribute && typeof v === 'string') {
-                instance.setAttribute(key, v);
-              } else {
-                instance[key] = v;
-              }
-            }),
-          );
-      });
-    };
-  };
-
-  const useMemoList = <T>(list: T[], compareFn = (a: T, b: T) => a === b) => {
-    const [state, setState] = useState(list);
-    const listChanged =
-      list.length !== state.length ||
-      list.some((arg, index) => !compareFn(arg, state[index] as T));
-    if (listChanged) {
-      // schedule update, triggers re-render
-      setState(list);
-    }
-    return listChanged ? list : state;
-  };
-
-  const Rerenderer = ({
-    signals,
-    render,
-  }: {
-    signals: Signal[];
-    render: () => ReactNode;
-  }): ReactNode => {
-    const [, rerender] = useReducer((c) => c + 1, 0);
-    const memoedSignals = useMemoList(signals);
-    useEffect(() => {
-      const unsubs = memoedSignals.map((sig) => subscribeSignal(sig, rerender));
-      return () => unsubs.forEach((unsub) => unsub());
-    }, [memoedSignals]);
-    return render();
-  };
-
   const findAllSignals = (x: unknown): Signal[] => {
     if (isSignal(x)) {
       return [x];
@@ -286,45 +154,156 @@ export function createReactSignals<Args extends object[]>(
     return x;
   };
 
+  const removeAllSignals = <T>(target: T): T => {
+    const seen = new WeakSet();
+    const remove = (xa: [T]): [T] | [] => {
+      const [x] = xa;
+      if (typeof x === 'object' && x !== null) {
+        if (seen.has(x)) {
+          return xa;
+        }
+        seen.add(x);
+      }
+      if (isSignal(x)) {
+        return [];
+      }
+      if (Array.isArray(x)) {
+        const x2 = x.flatMap((item) => remove([item]));
+        return x2.length === x.length && x2.every((item, i) => item === x[i])
+          ? xa
+          : [x2 as T];
+      }
+      if (typeof x === 'object' && x !== null) {
+        const entries = Object.entries(x);
+        const entries2 = entries.flatMap(([key, value]) => {
+          const value2 = remove([value]);
+          return value2.length === 0 ? [] : [[key, value2[0]] as const];
+        });
+        return entries2.length === entries.length &&
+          entries2.every(([k, v]) => v === (x as Record<string, unknown>)[k])
+          ? xa
+          : [Object.fromEntries(entries2) as T];
+      }
+      return xa;
+    };
+    const result = remove([target]);
+    return result.length ? result[0] : target;
+  };
+
+  const register = (
+    signalsInChildren: Signal[],
+    signalsInProps: { [key: string]: Signal[] },
+    children: unknown[],
+    props: { [key: string]: unknown } = {},
+  ) => {
+    const unsubs: (() => void)[] = [];
+    return (instance: any) => {
+      unsubs.splice(0).forEach((unsub) => unsub());
+      if (!instance) {
+        return;
+      }
+      if (signalsInChildren.length) {
+        const callback = () => {
+          instance.textContent = fillAllSignalValues(children).join('');
+        };
+        signalsInChildren.forEach((sig) =>
+          unsubs.push(subscribeSignal(sig, callback)),
+        );
+      }
+      Object.entries(props).forEach(([key, val]) => {
+        const sigs = signalsInProps[key];
+        if (sigs) {
+          const callback = () => {
+            const v = fillAllSignalValues(val);
+            if (key === 'className') {
+              instance.className = Array.isArray(v) ? v.join(' ') : v;
+            }
+            if (key === 'style') {
+              Object.entries(v as object).forEach(([k2, v2]) => {
+                instance.style[k2] = typeof v2 === 'number' ? `${v2}px` : v2;
+              });
+            }
+            if (instance.setAttribute && typeof v === 'string') {
+              instance.setAttribute(key, v);
+            } else {
+              instance[key] = v;
+            }
+          };
+          sigs.forEach((sig) => unsubs.push(subscribeSignal(sig, callback)));
+        }
+      });
+    };
+  };
+
+  const useMemoList = <T>(list: T[], compareFn = (a: T, b: T) => a === b) => {
+    const [state, setState] = useState(list);
+    const listChanged =
+      list.length !== state.length ||
+      list.some((arg, index) => !compareFn(arg, state[index] as T));
+    if (listChanged) {
+      // schedule update, triggers re-render
+      setState(list);
+    }
+    return listChanged ? list : state;
+  };
+
+  const Rerenderer = ({
+    signals,
+    render,
+  }: {
+    signals: Signal[];
+    render: () => ReactNode;
+  }): ReactNode => {
+    const [, rerender] = useReducer((c) => c + 1, 0);
+    const memoedSignals = useMemoList(signals);
+    useEffect(() => {
+      const unsubs = memoedSignals.map((sig) => subscribeSignal(sig, rerender));
+      return () => unsubs.forEach((unsub) => unsub());
+    }, [memoedSignals]);
+    return render();
+  };
+
   const createElement = ((type: any, props?: any, ...children: any[]) => {
     const signalsInChildren = children.flatMap((child) =>
       isSignal(child) ? [child] : [],
     );
-    const signalsInProps = findAllSignals(props);
+    const signalsInProps = Object.fromEntries(
+      Object.entries(props || {}).flatMap(([key, value]) => {
+        const sigs = findAllSignals(value);
+        if (sigs.length) {
+          return [[key, sigs]];
+        }
+        return [];
+      }),
+    );
+    const allSignalsInProps = Object.values(signalsInProps).flat();
 
     // case 1: no signals
-    if (!signalsInChildren.length && !signalsInProps.length) {
+    if (!signalsInChildren.length && !allSignalsInProps.length) {
       return createElementOrig(type, props, ...children);
     }
 
-    // case 2: only displayable signals
-    if (
-      typeof type === 'string' &&
-      (signalsInChildren.length === 0 ||
-        (signalsInChildren.length === 1 && children.length === 1)) &&
-      signalsInChildren.every(isDisplayableSignal) &&
-      signalsInProps.every(isDisplayableSignal)
-    ) {
-      const { className, style, ...rest } = props;
+    // case 2: uncontrolled
+    if (typeof type === 'string') {
       return createElementOrig(
         type,
         {
-          ...removeSignals(props, signalsInProps),
-          ref: register(children, className, style, rest),
+          ...removeAllSignals(props),
+          ref: register(signalsInChildren, signalsInProps, children, props),
         },
-        ...removeSignals(children, signalsInChildren),
+        ...removeAllSignals(children),
       );
     }
 
-    // case 3: signals including non-displayable ones
+    // case 3: rerenderer
     const getChildren = () =>
       signalsInChildren.length
         ? children.map((child) => (isSignal(child) ? readSignal(child) : child))
         : children;
     const getProps = () =>
-      signalsInProps.length ? fillAllSignalValues(props) : props;
+      allSignalsInProps.length ? fillAllSignalValues(props) : props;
     return createElementOrig(Rerenderer as any, {
-      signals: [...signalsInChildren, ...signalsInProps],
+      signals: [...signalsInChildren, ...allSignalsInProps],
       render: () => createElementOrig(type, getProps(), ...getChildren()),
     });
   }) as typeof createElementOrig;
