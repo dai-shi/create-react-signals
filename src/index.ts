@@ -245,6 +245,16 @@ export function createReactSignals<Args extends object[]>(
     };
   };
 
+  // LIMITATION: this is just guessing from the first value
+  const isDisplayableSignal = (sig: Signal) => {
+    try {
+      const v = readSignal(sig);
+      return typeof v === 'string' || typeof v === 'number';
+    } catch (e) {
+      return false;
+    }
+  };
+
   const useMemoList = <T>(list: T[], compareFn = (a: T, b: T) => a === b) => {
     const [state, setState] = useState(list);
     const listChanged =
@@ -297,7 +307,12 @@ export function createReactSignals<Args extends object[]>(
     if (
       typeof type === 'string' &&
       (!signalsInChildren.length ||
-        children.every((c) => typeof c === 'string' || typeof c === 'number'))
+        children.every(
+          (c) =>
+            typeof c === 'string' ||
+            typeof c === 'number' ||
+            (isSignal(c) && isDisplayableSignal(c)),
+        ))
     ) {
       return createElementOrig(
         type,
