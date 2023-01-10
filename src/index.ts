@@ -234,6 +234,10 @@ export function createReactSignals<Args extends object[]>(
               });
             } else if (instance.setAttribute && typeof v === 'string') {
               instance.setAttribute(key, v);
+            } else if (instance[key]?.fromArray && Array.isArray(v)) {
+              instance[key].fromArray(v);
+            } else if (instance[key]?.set) {
+              instance[key].set(...(Array.isArray(v) ? v : [v]));
             } else {
               instance[key] = v;
             }
