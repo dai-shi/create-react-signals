@@ -228,13 +228,11 @@ export function createReactSignals<Args extends object[]>(
             const v = fillAllSignalValues(val);
             if (key === 'className') {
               instance.className = Array.isArray(v) ? v.join(' ') : v;
-            }
-            if (key === 'style') {
+            } else if (key === 'style') {
               Object.entries(v as object).forEach(([k2, v2]) => {
                 instance.style[k2] = typeof v2 === 'number' ? `${v2}px` : v2;
               });
-            }
-            if (instance.setAttribute && typeof v === 'string') {
+            } else if (instance.setAttribute && typeof v === 'string') {
               instance.setAttribute(key, v);
             } else {
               instance[key] = v;
