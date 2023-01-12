@@ -1,6 +1,8 @@
 # Change Log
 
 ## [Unreleased]
+### Changed
+- feat: uncontrolled component if displayable signals #3
 
 ## [0.2.0] - 2023-01-09
 ### Changed

@@ -108,6 +108,155 @@ export function createReactSignals<Args extends object[]>(
     return value;
   };
 
+  // ----------------------------------------------------------------------
+
+  const findAllSignals = (x: unknown): Signal[] => {
+    if (isSignal(x)) {
+      return [x];
+    }
+    if (Array.isArray(x)) {
+      return x.flatMap(findAllSignals);
+    }
+    if (typeof x === 'object' && x !== null) {
+      return Object.values(x).flatMap(findAllSignals);
+    }
+    return [];
+  };
+
+  const fillAllSignalValues = <T>(target: T): T => {
+    const seen = new WeakSet();
+    const fill = (x: T): T => {
+      if (typeof x === 'object' && x !== null) {
+        if (seen.has(x)) {
+          return x;
+        }
+        seen.add(x);
+      }
+      if (isSignal(x)) {
+        return readSignal(x) as T;
+      }
+      if (Array.isArray(x)) {
+        let changed = false;
+        const x2 = x.map((item) => {
+          const item2 = fill(item);
+          if (item !== item2) {
+            changed = true; // HACK side effect
+          }
+          return item2;
+        });
+        return changed ? (x2 as typeof x) : x;
+      }
+      if (typeof x === 'object' && x !== null) {
+        let changed = false;
+        const x2 = Object.fromEntries(
+          Object.entries(x).map(([key, value]) => {
+            const value2 = fill(value);
+            if (value !== value2) {
+              changed = true; // HACK side effect
+            }
+            return [key, value2];
+          }),
+        );
+        return changed ? (x2 as typeof x) : x;
+      }
+      return x;
+    };
+    return fill(target);
+  };
+
+  const removeAllSignals = <T>(target: T): T => {
+    const seen = new WeakSet();
+    const remove = (xa: [T]): [T] | [] => {
+      const [x] = xa;
+      if (typeof x === 'object' && x !== null) {
+        if (seen.has(x)) {
+          return xa;
+        }
+        seen.add(x);
+      }
+      if (isSignal(x)) {
+        return [];
+      }
+      if (Array.isArray(x)) {
+        const x2 = x.flatMap((item) => remove([item]));
+        return x2.length === x.length && x2.every((item, i) => item === x[i])
+          ? xa
+          : [x2 as T];
+      }
+      if (typeof x === 'object' && x !== null) {
+        const entries = Object.entries(x);
+        const entries2 = entries.flatMap(([key, value]) => {
+          const value2 = remove([value]);
+          return value2.length === 0 ? [] : [[key, value2[0]] as const];
+        });
+        return entries2.length === entries.length &&
+          entries2.every(([k, v]) => v === (x as Record<string, unknown>)[k])
+          ? xa
+          : [Object.fromEntries(entries2) as T];
+      }
+      return xa;
+    };
+    const result = remove([target]);
+    return result.length ? result[0] : target;
+  };
+
+  const register = (
+    signalsInChildren: Signal[],
+    signalsInProps: { [key: string]: Signal[] },
+    children: unknown[],
+    props: { [key: string]: unknown } = {},
+  ) => {
+    const unsubs: (() => void)[] = [];
+    return (instance: any) => {
+      unsubs.splice(0).forEach((unsub) => unsub());
+      if (!instance) {
+        return;
+      }
+      if (signalsInChildren.length) {
+        const callback = () => {
+          instance.textContent = fillAllSignalValues(children).join('');
+        };
+        signalsInChildren.forEach((sig) =>
+          unsubs.push(subscribeSignal(sig, callback)),
+        );
+        callback();
+      }
+      Object.entries(props).forEach(([key, val]) => {
+        const sigs = signalsInProps[key];
+        if (sigs) {
+          const callback = () => {
+            const v = fillAllSignalValues(val);
+            if (key === 'style') {
+              Object.entries(
+                Array.isArray(v) ? Object.assign({}, ...v) : (v as object),
+              ).forEach(([k2, v2]) => {
+                instance.style[k2] = typeof v2 === 'number' ? `${v2}px` : v2;
+              });
+            } else if (instance[key]?.fromArray && Array.isArray(v)) {
+              instance[key].fromArray(v);
+            } else if (instance[key]?.set) {
+              instance[key].set(...(Array.isArray(v) ? v : [v]));
+            } else {
+              instance[key] = v;
+            }
+          };
+          sigs.forEach((sig) => unsubs.push(subscribeSignal(sig, callback)));
+          callback();
+        }
+      });
+    };
+  };
+
+  // LIMITATION: this is just guessing from the first value
+  const isDisplayableSignal = (sig: Signal) => {
+    try {
+      const v = readSignal(sig);
+      return typeof v === 'string' || typeof v === 'number';
+    } catch (e) {
+      return false;
+    }
+  };
+
   const useMemoList = <T>(list: T[], compareFn = (a: T, b: T) => a === b) => {
     const [state, setState] = useState(list);
     const listChanged =
@@ -136,66 +285,56 @@ export function createReactSignals<Args extends object[]>(
     return render();
   };
 
-  const findAllSignals = (x: unknown): Signal[] => {
-    if (isSignal(x)) {
-      return [x];
-    }
-    if (Array.isArray(x)) {
-      return x.flatMap(findAllSignals);
-    }
-    if (typeof x === 'object' && x !== null) {
-      return Object.values(x).flatMap(findAllSignals);
-    }
-    return [];
-  };
-
-  const fillAllSignalValues = <T>(x: T): T => {
-    if (isSignal(x)) {
-      return readSignal(x) as T;
-    }
-    if (Array.isArray(x)) {
-      let changed = false;
-      const x2 = x.map((item) => {
-        const item2 = fillAllSignalValues(item);
-        if (item !== item2) {
-          changed = true; // HACK side effect
-        }
-        return item2;
-      });
-      return changed ? (x2 as typeof x) : x;
-    }
-    if (typeof x === 'object' && x !== null) {
-      let changed = false;
-      const x2 = Object.fromEntries(
-        Object.entries(x).map(([key, value]) => {
-          const value2 = fillAllSignalValues(value);
-          if (value !== value2) {
-            changed = true; // HACK side effect
-          }
-          return [key, value2];
-        }),
-      );
-      return changed ? (x2 as typeof x) : x;
-    }
-    return x;
-  };
-
   const createElement = ((type: any, props?: any, ...children: any[]) => {
     const signalsInChildren = children.flatMap((child) =>
       isSignal(child) ? [child] : [],
     );
-    const signalsInProps = findAllSignals(props);
-    if (!signalsInChildren.length && !signalsInProps.length) {
+    const signalsInProps = Object.fromEntries(
+      Object.entries(props || {}).flatMap(([key, value]) => {
+        const sigs = findAllSignals(value);
+        if (sigs.length) {
+          return [[key, sigs]];
+        }
+        return [];
+      }),
+    );
+    const allSignalsInProps = Object.values(signalsInProps).flat();
+
+    // case 1: no signals
+    if (!signalsInChildren.length && !allSignalsInProps.length) {
       return createElementOrig(type, props, ...children);
     }
+
+    // case 2: uncontrolled
+    if (
+      typeof type === 'string' &&
+      (!signalsInChildren.length ||
+        children.every(
+          (c) =>
+            typeof c === 'string' ||
+            typeof c === 'number' ||
+            (isSignal(c) && isDisplayableSignal(c)),
+        ))
+    ) {
+      return createElementOrig(
+        type,
+        {
+          ...removeAllSignals(props),
+          ref: register(signalsInChildren, signalsInProps, children, props),
+        },
+        ...removeAllSignals(children),
+      );
+    }
+
+    // case 3: rerenderer
     const getChildren = () =>
       signalsInChildren.length
         ? children.map((child) => (isSignal(child) ? readSignal(child) : child))
         : children;
     const getProps = () =>
-      signalsInProps.length ? fillAllSignalValues(props) : props;
+      allSignalsInProps.length ? fillAllSignalValues(props) : props;
     return createElementOrig(Rerenderer as any, {
-      signals: [...signalsInChildren, ...signalsInProps],
+      signals: [...signalsInChildren, ...allSignalsInProps],
       render: () => createElementOrig(type, getProps(), ...getChildren()),
     });
   }) as typeof createElementOrig;
