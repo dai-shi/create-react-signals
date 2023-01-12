@@ -8,12 +8,12 @@ export const applyProps = (
     } else if (key === 'style') {
       Object.entries(
         Array.isArray(value) ? Object.assign({}, ...value) : (value as object),
-      ).forEach(([k2, v2]) => {
-        if (k2 === 'float') {
-          k2 = 'cssFloat';
+      ).forEach(([k, v]) => {
+        if (k === 'float') {
+          k = 'cssFloat';
         }
-        (instance as any).style[k2] =
-          typeof v2 === 'number' ? `${v2}px` : (v2 as string);
+        (instance as any).style[k] =
+          typeof v === 'number' ? `${v}px` : (v as string);
       });
     } else {
       (instance as any)[key] = value;
