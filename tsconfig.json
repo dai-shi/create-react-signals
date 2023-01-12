@@ -4,7 +4,7 @@
     "target": "es5",
     "esModuleInterop": true,
     "downlevelIteration": true,
-    "module": "es2015",
+    "module": "esnext",
     "moduleResolution": "node",
     "jsx": "react",
     "allowJs": true,

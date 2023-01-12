@@ -6,6 +6,9 @@ import {
 } from 'react';
 import type { ReactNode } from 'react';
 
+import { applyProps as applyPropsDOM } from './applyProps-dom';
+import { applyProps as applyPropsR3F } from './applyProps-r3f';
+
 type Unsubscribe = () => void;
 type Subscribe = (callback: () => void) => Unsubscribe;
 type GetValue = () => unknown;
@@ -200,6 +203,18 @@ export function createReactSignals<Args extends object[]>(
     return result.length ? result[0] : target;
   };
 
+  const applyProps = (instance: any, props: { [key: string]: unknown }) => {
+    let fn: typeof applyProps;
+    if (typeof Element !== 'undefined' && instance instanceof Element) {
+      fn = applyPropsDOM;
+    } else if (instance.__r3f) {
+      fn = applyPropsR3F;
+    } else {
+      throw new Error('Cannot detect renderer type');
+    }
+    fn(instance, props);
+  };
+
   const register = (
     signalsInChildren: Signal[],
     signalsInProps: { [key: string]: Signal[] },
@@ -213,9 +228,10 @@ export function createReactSignals<Args extends object[]>(
         return;
       }
       if (signalsInChildren.length) {
-        const callback = () => {
-          instance.textContent = fillAllSignalValues(children).join('');
-        };
+        const callback = () =>
+          applyProps(instance, {
+            children: fillAllSignalValues(children).join(''),
+          });
         signalsInChildren.forEach((sig) =>
           unsubs.push(subscribeSignal(sig, callback)),
         );
@@ -224,22 +240,10 @@ export function createReactSignals<Args extends object[]>(
       Object.entries(props).forEach(([key, val]) => {
         const sigs = signalsInProps[key];
         if (sigs) {
-          const callback = () => {
-            const v = fillAllSignalValues(val);
-            if (key === 'style') {
-              Object.entries(
-                Array.isArray(v) ? Object.assign({}, ...v) : (v as object),
-              ).forEach(([k2, v2]) => {
-                instance.style[k2] = typeof v2 === 'number' ? `${v2}px` : v2;
-              });
-            } else if (instance[key]?.fromArray && Array.isArray(v)) {
-              instance[key].fromArray(v);
-            } else if (instance[key]?.set) {
-              instance[key].set(...(Array.isArray(v) ? v : [v]));
-            } else {
-              instance[key] = v;
-            }
-          };
+          const callback = () =>
+            applyProps(instance, {
+              [key]: fillAllSignalValues(val),
+            });
           sigs.forEach((sig) => unsubs.push(subscribeSignal(sig, callback)));
           callback();
         }

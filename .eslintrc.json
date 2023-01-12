@@ -45,7 +45,8 @@
       "varsIgnorePattern": "^(createElement|Fragment)$"
     }],
     "no-redeclare": "off",
-    "react/function-component-definition": ["error", { "namedComponents": "arrow-function" }]
+    "react/function-component-definition": ["error", { "namedComponents": "arrow-function" }],
+    "no-underscore-dangle": ["error", { "allow": ["__r3f"] }]
   },
   "overrides": [{
     "files": ["__tests__/**/*"],
