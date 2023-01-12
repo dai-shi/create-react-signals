@@ -226,14 +226,12 @@ export function createReactSignals<Args extends object[]>(
         if (sigs) {
           const callback = () => {
             const v = fillAllSignalValues(val);
-            if (key === 'className') {
-              instance.className = Array.isArray(v) ? v.join(' ') : v;
-            } else if (key === 'style') {
-              Object.entries(v as object).forEach(([k2, v2]) => {
+            if (key === 'style') {
+              Object.entries(
+                Array.isArray(v) ? Object.assign({}, ...v) : (v as object),
+              ).forEach(([k2, v2]) => {
                 instance.style[k2] = typeof v2 === 'number' ? `${v2}px` : v2;
               });
-            } else if (instance.setAttribute && typeof v === 'string') {
-              instance.setAttribute(key, v);
             } else if (instance[key]?.fromArray && Array.isArray(v)) {
               instance[key].fromArray(v);
             } else if (instance[key]?.set) {
