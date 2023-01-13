@@ -1,7 +1,16 @@
 diff --git a/node_modules/react-dom/cjs/react-dom.development.js b/node_modules/react-dom/cjs/react-dom.development.js
-index e4ed5ae..79b658b 100644
+index e4ed5ae..9f98c04 100644
 --- a/node_modules/react-dom/cjs/react-dom.development.js
 +++ b/node_modules/react-dom/cjs/react-dom.development.js
+@@ -2811,7 +2811,7 @@ function setValueForStyles(node, styles) {
+ 
+     var isCustomProperty = styleName.indexOf('--') === 0;
+ 
+-    {
++    if (false) {
+       if (!isCustomProperty) {
+         warnValidStyle$1(styleName, styles[styleName]);
+       }
 @@ -29866,3 +29866,5 @@ if (
          
    })();
