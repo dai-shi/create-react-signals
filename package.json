@@ -31,8 +31,7 @@
     "test": "run-s eslint tsc-test jest",
     "eslint": "eslint --ext .js,.ts,.tsx .",
     "jest": "jest",
-    "tsc-test": "tsc --project . --noEmit",
-    "postinstall": "patch-package"
+    "tsc-test": "tsc --project . --noEmit"
   },
   "jest": {
     "testEnvironment": "jsdom",
