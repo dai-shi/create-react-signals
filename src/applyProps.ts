@@ -1,3 +1,9 @@
+/* eslint @typescript-eslint/ban-ts-comment: off */
+/* eslint import/extensions: off */
+
+// @ts-ignore
+import { setValueForStyles } from 'react-dom/cjs/react-dom.development.js';
+
 export type Props = { [key: string]: unknown };
 
 export const applyPropsDOM = (instance: Element, props: Props) => {
@@ -5,15 +11,10 @@ export const applyPropsDOM = (instance: Element, props: Props) => {
     if (key === 'children') {
       instance.textContent = value as string;
     } else if (key === 'style') {
-      Object.entries(
+      setValueForStyles(
+        instance,
         Array.isArray(value) ? Object.assign({}, ...value) : (value as object),
-      ).forEach(([k, v]) => {
-        if (k === 'float') {
-          k = 'cssFloat';
-        }
-        (instance as any).style[k] =
-          typeof v === 'number' ? `${v}px` : (v as string);
-      });
+      );
     } else {
       (instance as any)[key] = value;
     }

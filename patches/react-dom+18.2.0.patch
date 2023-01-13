@@ -1,0 +1,10 @@
+diff --git a/node_modules/react-dom/cjs/react-dom.development.js b/node_modules/react-dom/cjs/react-dom.development.js
+index e4ed5ae..79b658b 100644
+--- a/node_modules/react-dom/cjs/react-dom.development.js
++++ b/node_modules/react-dom/cjs/react-dom.development.js
+@@ -29866,3 +29866,5 @@ if (
+         
+   })();
+ }
++
++exports.setValueForStyles = setValueForStyles;
