@@ -7,6 +7,7 @@ import {
 import type { ReactNode } from 'react';
 
 import { applyProps } from './applyProps';
+import type { Props } from './applyProps';
 
 type Unsubscribe = () => void;
 type Subscribe = (callback: () => void) => Unsubscribe;
@@ -206,7 +207,7 @@ export function createReactSignals<Args extends object[]>(
     signalsInChildren: Signal[],
     signalsInProps: { [key: string]: Signal[] },
     children: unknown[],
-    props: { [key: string]: unknown } = {},
+    props: Props = {},
   ) => {
     const unsubs: (() => void)[] = [];
     return (instance: any) => {
@@ -214,6 +215,7 @@ export function createReactSignals<Args extends object[]>(
       if (!instance) {
         return;
       }
+      // NOTE it would be nicer if we can batch callbacks
       if (signalsInChildren.length) {
         const callback = () =>
           applyProps(instance, {

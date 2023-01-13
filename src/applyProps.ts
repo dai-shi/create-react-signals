@@ -23,14 +23,14 @@ export const applyPropsDOM = (instance: Element, props: Props) => {
 let r3fModule: any;
 
 const applyPropsR3F = (instance: any, props: Props) => {
-  if (r3fModule) {
-    r3fModule.applyProps(instance, props);
+  if (!r3fModule) {
+    import('@react-three/fiber').then((m) => {
+      r3fModule = m;
+      applyPropsR3F(instance, props);
+    });
     return;
   }
-  import('@react-three/fiber').then((m) => {
-    r3fModule = m;
-    m.applyProps(instance, props);
-  });
+  r3fModule.applyProps(instance, props);
 };
 
 export const applyProps = (instance: any, props: Props) => {
