@@ -21,10 +21,7 @@ let r3fModule: any;
 
 const applyPropsR3F = (instance: any, props: Props) => {
   if (!r3fModule) {
-    import(
-      /* webpackIgnore: true */
-      '@react-three/fiber'
-    ).then((m) => {
+    import('@react-three/fiber').then((m) => {
       r3fModule = m;
       applyPropsR3F(instance, props);
     });
@@ -40,7 +37,6 @@ let rnModule: any;
 const applyPropsRN = (instance: any, props: Props) => {
   if (!rnModule) {
     import(
-      /* webpackIgnore: true */
       // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-ignore
       'react-native/Libraries/ReactPrivate/ReactNativePrivateInterface'
