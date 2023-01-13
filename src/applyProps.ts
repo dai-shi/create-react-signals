@@ -1,8 +1,4 @@
-/* eslint @typescript-eslint/ban-ts-comment: off */
-/* eslint import/extensions: off */
-
-// @ts-ignore
-import { setValueForStyles } from 'react-dom/cjs/react-dom.development.js';
+import { setValueForStyles } from './vendor/react-dom';
 
 export type Props = { [key: string]: unknown };
 
