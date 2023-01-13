@@ -1,8 +1,11 @@
 import { setValueForStyles } from './vendor/react-dom';
 
+// eslint-disable-next-line no-var
+declare var __CREATE_REACT_SIGNALS_ATTACH_PROPS: any;
+
 export type Props = { [key: string]: unknown };
 
-export const applyPropsDOM = (instance: Element, props: Props) => {
+const applyPropsDOM = (instance: Element, props: Props) => {
   Object.entries(props).forEach(([key, value]) => {
     if (key === 'children') {
       instance.textContent = value as string;
@@ -17,51 +20,32 @@ export const applyPropsDOM = (instance: Element, props: Props) => {
   });
 };
 
-let r3fModule: any;
-
 const applyPropsR3F = (instance: any, props: Props) => {
-  if (!r3fModule) {
-    import('@react-three/fiber').then((m) => {
-      r3fModule = m;
-      applyPropsR3F(instance, props);
-    });
-    return;
-  }
-  r3fModule.applyProps(instance, props);
-};
-
-let rnModule: any;
-
-// FIXME untested
-// TODO support text instance
-const applyPropsRN = (instance: any, props: Props) => {
-  if (!rnModule) {
-    import(
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-ignore
-      'react-native/Libraries/ReactPrivate/ReactNativePrivateInterface'
-    ).then((m) => {
-      rnModule = m;
-      applyPropsRN(instance, props);
-    });
-    return;
-  }
-  const { UIManager } = rnModule;
-  UIManager.updateView(
-    instance._nativeTag,
-    instance.viewConfig.uiViewClassName,
-    props,
-  );
+  Object.entries(props).forEach(([key, value]) => {
+    if (instance[key]?.fromArray && Array.isArray(value)) {
+      instance[key].fromArray(value);
+    } else if (instance[key]?.set) {
+      instance[key].set(...(Array.isArray(value) ? value : [value]));
+    } else if (
+      instance[key]?.copy &&
+      value?.constructor &&
+      instance[key].constructor.name === value.constructor.name
+    ) {
+      instance[key].copy(value);
+    } else {
+      instance[key] = value;
+    }
+  });
 };
 
 export const applyProps = (instance: any, props: Props) => {
   let fn: typeof applyProps;
-  if (typeof Element !== 'undefined' && instance instanceof Element) {
+  if (typeof __CREATE_REACT_SIGNALS_ATTACH_PROPS === 'function') {
+    fn = __CREATE_REACT_SIGNALS_ATTACH_PROPS;
+  } else if (typeof Element !== 'undefined' && instance instanceof Element) {
     fn = applyPropsDOM;
   } else if (instance.__r3f) {
     fn = applyPropsR3F;
-  } else if (instance._nativeTag && instance.viewConfig) {
-    fn = applyPropsRN;
   } else {
     throw new Error('Cannot detect renderer type');
   }
