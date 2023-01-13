@@ -1,3 +1,8 @@
+import { applyProps as applyPropsR3F } from '@react-three/fiber';
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore
+import { UIManager } from 'react-native/Libraries/ReactPrivate/ReactNativePrivateInterface';
+
 import { setValueForStyles } from './vendor/react-dom';
 
 export type Props = { [key: string]: unknown };
@@ -17,36 +22,9 @@ export const applyPropsDOM = (instance: Element, props: Props) => {
   });
 };
 
-let r3fModule: any;
-
-const applyPropsR3F = (instance: any, props: Props) => {
-  if (!r3fModule) {
-    import('@react-three/fiber').then((m) => {
-      r3fModule = m;
-      applyPropsR3F(instance, props);
-    });
-    return;
-  }
-  r3fModule.applyProps(instance, props);
-};
-
-let rnModule: any;
-
 // FIXME untested
 // TODO support text instance
 const applyPropsRN = (instance: any, props: Props) => {
-  if (!rnModule) {
-    import(
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-ignore
-      'react-native/Libraries/ReactPrivate/ReactNativePrivateInterface'
-    ).then((m) => {
-      rnModule = m;
-      applyPropsRN(instance, props);
-    });
-    return;
-  }
-  const { UIManager } = rnModule;
   UIManager.updateView(
     instance._nativeTag,
     instance.viewConfig.uiViewClassName,
