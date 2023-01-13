@@ -1,6 +1,8 @@
 # Change Log
 
 ## [Unreleased]
+
+## [0.4.0] - 2023-01-13
 ### Changed
 - feat: apply props #4
 
