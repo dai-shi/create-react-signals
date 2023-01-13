@@ -2,7 +2,12 @@
 
 ## [Unreleased]
 
+## [0.4.1] - 2023-01-13
+### Changed
+- fix: do not depend on peer dependencies #5
+
 ## [0.4.0] - 2023-01-13
+This version is basically broken.
 ### Changed
 - feat: apply props #4
 
