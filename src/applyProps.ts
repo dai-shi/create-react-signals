@@ -1,6 +1,3 @@
-/* eslint global-require: off */
-/* eslint @typescript-eslint/no-var-requires: off */
-
 import { setValueForStyles } from './vendor/react-dom';
 
 export type Props = { [key: string]: unknown };
@@ -24,8 +21,10 @@ let r3fModule: any;
 
 const applyPropsR3F = (instance: any, props: Props) => {
   if (!r3fModule) {
-    r3fModule = require('@react-three/fiber');
-    applyPropsR3F(instance, props);
+    import('@react-three/fiber').then((m) => {
+      r3fModule = m;
+      applyPropsR3F(instance, props);
+    });
     return;
   }
   r3fModule.applyProps(instance, props);
@@ -37,8 +36,14 @@ let rnModule: any;
 // TODO support text instance
 const applyPropsRN = (instance: any, props: Props) => {
   if (!rnModule) {
-    rnModule = require('react-native/Libraries/ReactPrivate/ReactNativePrivateInterface');
-    applyPropsRN(instance, props);
+    import(
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-ignore
+      'react-native/Libraries/ReactPrivate/ReactNativePrivateInterface'
+    ).then((m) => {
+      rnModule = m;
+      applyPropsRN(instance, props);
+    });
     return;
   }
   const { UIManager } = rnModule;
