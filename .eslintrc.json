@@ -46,7 +46,7 @@
     }],
     "no-redeclare": "off",
     "react/function-component-definition": ["error", { "namedComponents": "arrow-function" }],
-    "no-underscore-dangle": ["error", { "allow": ["__r3f"] }]
+    "no-underscore-dangle": "off"
   },
   "overrides": [{
     "files": ["__tests__/**/*"],
