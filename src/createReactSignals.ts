@@ -177,22 +177,10 @@ export function createReactSignals<Args extends object[]>(
       }
       // NOTE it would be nicer if we can batch callbacks
       if (signalsInChildren.length) {
-        const callback = () => {
-          if (
-            children.some(
-              (child) =>
-                !isSignal(child) &&
-                typeof child !== 'string' &&
-                typeof child !== 'number',
-            )
-          ) {
-            fallback();
-            return;
-          }
+        const callback = () =>
           applyProps(instance, {
             children: fillAllSignalValues(children).join(''),
           });
-        };
         signalsInChildren.forEach((sig) =>
           unsubs.push(
             subscribeSignal(sig, () => {
@@ -286,6 +274,13 @@ export function createReactSignals<Args extends object[]>(
       return createElementOrig(type, props, ...children);
     }
 
+    const hasNonDisplayableChildren = children.some(
+      (child) =>
+        !isSignal(child) &&
+        typeof child !== 'string' &&
+        typeof child !== 'number',
+    );
+
     // case: rerenderer
     const getChildren = () =>
       signalsInChildren.length
@@ -311,7 +306,7 @@ export function createReactSignals<Args extends object[]>(
       return propsToReturn;
     };
     return createElementOrig(Rerenderer as any, {
-      uncontrolled: typeof type === 'string',
+      uncontrolled: typeof type === 'string' && !hasNonDisplayableChildren,
       signals: [...signalsInChildren, ...allSignalsInProps],
       render: (uncontrolledFallback: (() => void) | false) =>
         createElementOrig(
