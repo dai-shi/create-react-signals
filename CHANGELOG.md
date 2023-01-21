@@ -1,6 +1,8 @@
 # Change Log
 
 ## [Unreleased]
+### Added
+- feat: fallback to rerenderer #6
 
 ## [0.4.1] - 2023-01-13
 ### Changed
@@ -12,7 +14,7 @@ This version is basically broken.
 - feat: apply props #4
 
 ## [0.3.0] - 2023-01-12
-### Changed
+### Added
 - feat: uncontrolled component if displayable signals #3
 
 ## [0.2.0] - 2023-01-09
