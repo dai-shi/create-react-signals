@@ -1,9 +1,4 @@
-import {
-  createElement as createElementOrig,
-  useEffect,
-  useReducer,
-  useState,
-} from 'react';
+import { createElement as createElementOrig, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 
 import { applyProps } from './applyProps';
@@ -77,10 +72,10 @@ export function createReactSignals<Args extends object[]>(
     return sig;
   };
 
-  const cache1 = new WeakMap();
+  const signalCache = new WeakMap();
 
   const getSignal = (...args: Args): unknown => {
-    let cache = cache1;
+    let cache = signalCache;
     for (let i = 0; i < args.length - 1; ++i) {
       const arg = args[i] as object;
       let nextCache = cache.get(arg);
@@ -167,47 +162,12 @@ export function createReactSignals<Args extends object[]>(
     return fill(target);
   };
 
-  const removeAllSignals = <T>(target: T): T => {
-    const seen = new WeakSet();
-    const remove = (xa: [T]): [T] | [] => {
-      const [x] = xa;
-      if (typeof x === 'object' && x !== null) {
-        if (seen.has(x)) {
-          return xa;
-        }
-        seen.add(x);
-      }
-      if (isSignal(x)) {
-        return [];
-      }
-      if (Array.isArray(x)) {
-        const x2 = x.flatMap((item) => remove([item]));
-        return x2.length === x.length && x2.every((item, i) => item === x[i])
-          ? xa
-          : [x2 as T];
-      }
-      if (typeof x === 'object' && x !== null) {
-        const entries = Object.entries(x);
-        const entries2 = entries.flatMap(([key, value]) => {
-          const value2 = remove([value]);
-          return value2.length === 0 ? [] : [[key, value2[0]] as const];
-        });
-        return entries2.length === entries.length &&
-          entries2.every(([k, v]) => v === (x as Record<string, unknown>)[k])
-          ? xa
-          : [Object.fromEntries(entries2) as T];
-      }
-      return xa;
-    };
-    const result = remove([target]);
-    return result.length ? result[0] : target;
-  };
-
   const register = (
+    fallback: () => void,
     signalsInChildren: Signal[],
     signalsInProps: { [key: string]: Signal[] },
     children: unknown[],
-    props: Props = {},
+    props: Props | undefined,
   ) => {
     const unsubs: (() => void)[] = [];
     return (instance: any) => {
@@ -217,37 +177,65 @@ export function createReactSignals<Args extends object[]>(
       }
       // NOTE it would be nicer if we can batch callbacks
       if (signalsInChildren.length) {
-        const callback = () =>
-          applyProps(instance, {
-            children: fillAllSignalValues(children).join(''),
-          });
+        const callback = () => {
+          try {
+            applyProps(instance, {
+              children: fillAllSignalValues(children).join(''),
+            });
+          } catch (e) {
+            // NOTE shouldn't we catch all errors?
+            fallback();
+          }
+        };
         signalsInChildren.forEach((sig) =>
-          unsubs.push(subscribeSignal(sig, callback)),
+          unsubs.push(
+            subscribeSignal(sig, () => {
+              try {
+                const v = readSignal(sig);
+                if (typeof v === 'string' || typeof v === 'number') {
+                  callback();
+                  return;
+                }
+              } catch (e) {
+                // NOTE shouldn't we catch all errors?
+              }
+              fallback();
+            }),
+          ),
         );
-        callback();
       }
-      Object.entries(props).forEach(([key, val]) => {
+      Object.entries(props || {}).forEach(([key, val]) => {
         const sigs = signalsInProps[key];
         if (sigs) {
-          const callback = () =>
-            applyProps(instance, {
-              [key]: fillAllSignalValues(val),
-            });
-          sigs.forEach((sig) => unsubs.push(subscribeSignal(sig, callback)));
-          callback();
+          const callback = () => {
+            try {
+              applyProps(instance, {
+                [key]: fillAllSignalValues(val),
+              });
+            } catch (e) {
+              // NOTE shouldn't we catch all errors?
+              fallback();
+            }
+          };
+          sigs.forEach((sig) =>
+            unsubs.push(
+              subscribeSignal(sig, () => {
+                try {
+                  const v = readSignal(sig);
+                  if (!(v instanceof Promise)) {
+                    callback();
+                    return;
+                  }
+                } catch (e) {
+                  // NOTE shouldn't we catch all errors?
+                }
+                fallback();
+              }),
+            ),
+          );
         }
       });
     };
-  };
-
-  // LIMITATION: this is just guessing from the first value
-  const isDisplayableSignal = (sig: Signal) => {
-    try {
-      const v = readSignal(sig);
-      return typeof v === 'string' || typeof v === 'number';
-    } catch (e) {
-      return false;
-    }
   };
 
   const useMemoList = <T>(list: T[], compareFn = (a: T, b: T) => a === b) => {
@@ -263,22 +251,30 @@ export function createReactSignals<Args extends object[]>(
   };
 
   const Rerenderer = ({
+    uncontrolled,
     signals,
     render,
   }: {
+    uncontrolled: boolean;
     signals: Signal[];
-    render: () => ReactNode;
+    render: (uncontrolledFallback: (() => void) | false) => ReactNode;
   }): ReactNode => {
-    const [, rerender] = useReducer((c) => c + 1, 0);
-    const memoedSignals = useMemoList(signals);
+    const [state, setState] = useState<{ uncontrolled?: boolean }>({
+      uncontrolled,
+    });
+    const uncontrolledFallback = !!state.uncontrolled && (() => setState({}));
+    const memoedSignals = useMemoList(state.uncontrolled ? [] : signals);
     useEffect(() => {
+      const rerender = () => setState({});
       const unsubs = memoedSignals.map((sig) => subscribeSignal(sig, rerender));
+      // FIXME we need to check if signals are updated
+      // before the effect fires, and trigger rerender
       return () => unsubs.forEach((unsub) => unsub());
     }, [memoedSignals]);
-    return render();
+    return render(uncontrolledFallback);
   };
 
-  const createElement = ((type: any, props?: any, ...children: any[]) => {
+  const createElement = ((type: any, props?: Props, ...children: any[]) => {
     const signalsInChildren = children.flatMap((child) =>
       isSignal(child) ? [child] : [],
     );
@@ -293,42 +289,51 @@ export function createReactSignals<Args extends object[]>(
     );
     const allSignalsInProps = Object.values(signalsInProps).flat();
 
-    // case 1: no signals
+    // case: no signals
     if (!signalsInChildren.length && !allSignalsInProps.length) {
       return createElementOrig(type, props, ...children);
     }
 
-    // case 2: uncontrolled
-    if (
-      typeof type === 'string' &&
-      (!signalsInChildren.length ||
-        children.every(
-          (c) =>
-            typeof c === 'string' ||
-            typeof c === 'number' ||
-            (isSignal(c) && isDisplayableSignal(c)),
-        ))
-    ) {
-      return createElementOrig(
-        type,
-        {
-          ...removeAllSignals(props),
-          ref: register(signalsInChildren, signalsInProps, children, props),
-        },
-        ...removeAllSignals(children),
-      );
-    }
+    const hasNonDisplayableChildren = children.some(
+      (child) =>
+        !isSignal(child) &&
+        typeof child !== 'string' &&
+        typeof child !== 'number',
+    );
 
-    // case 3: rerenderer
+    // case: rerenderer
     const getChildren = () =>
       signalsInChildren.length
         ? children.map((child) => (isSignal(child) ? readSignal(child) : child))
         : children;
-    const getProps = () =>
-      allSignalsInProps.length ? fillAllSignalValues(props) : props;
+    const getProps = (uncontrolledFallback: (() => void) | false) => {
+      let propsToReturn = props;
+      if (allSignalsInProps.length) {
+        propsToReturn = fillAllSignalValues(props);
+      }
+      if (uncontrolledFallback) {
+        propsToReturn = {
+          ...propsToReturn,
+          ref: register(
+            uncontrolledFallback,
+            signalsInChildren,
+            signalsInProps,
+            children,
+            props,
+          ),
+        };
+      }
+      return propsToReturn;
+    };
     return createElementOrig(Rerenderer as any, {
+      uncontrolled: typeof type === 'string' && !hasNonDisplayableChildren,
       signals: [...signalsInChildren, ...allSignalsInProps],
-      render: () => createElementOrig(type, getProps(), ...getChildren()),
+      render: (uncontrolledFallback: (() => void) | false) =>
+        createElementOrig(
+          type,
+          getProps(uncontrolledFallback),
+          ...getChildren(),
+        ),
     });
   }) as typeof createElementOrig;
 
