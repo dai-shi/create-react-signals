@@ -1,6 +1,8 @@
 # Change Log
 
 ## [Unreleased]
+
+## [0.5.0] - 2023-01-21
 ### Added
 - feat: fallback to rerenderer #6
 
