@@ -1,6 +1,8 @@
 # Change Log
 
 ## [Unreleased]
+
+## [0.6.0] - 2023-01-21
 ### Added
 - feat: scoped subscription #7
 
