@@ -113,9 +113,9 @@ export function createReactSignals<Args extends object[]>(
     return sig[SIGNAL][0](callback);
   };
 
-  const readSignal = (sig: Signal) => {
+  const readSignal = (sig: Signal, skipHandlePromise?: boolean) => {
     const value = sig[SIGNAL][1]();
-    if (handlePromise && value instanceof Promise) {
+    if (!skipHandlePromise && handlePromise && value instanceof Promise) {
       return handlePromise(value);
     }
     return value;
@@ -205,16 +205,12 @@ export function createReactSignals<Args extends object[]>(
         signalsInChildren.forEach((sig) =>
           unsubs.push(
             subscribeSignal(sig, () => {
-              try {
-                const v = readSignal(sig);
-                if (typeof v === 'string' || typeof v === 'number') {
-                  callback();
-                  return;
-                }
-              } catch (e) {
-                // NOTE shouldn't we catch all errors?
+              const v = readSignal(sig, true);
+              if (typeof v === 'string' || typeof v === 'number') {
+                callback();
+              } else {
+                fallback();
               }
-              fallback();
             }),
           ),
         );
@@ -235,16 +231,12 @@ export function createReactSignals<Args extends object[]>(
           sigs.forEach((sig) =>
             unsubs.push(
               subscribeSignal(sig, () => {
-                try {
-                  const v = readSignal(sig);
-                  if (!(v instanceof Promise)) {
-                    callback();
-                    return;
-                  }
-                } catch (e) {
-                  // NOTE shouldn't we catch all errors?
+                const v = readSignal(sig, true);
+                if (!(v instanceof Promise)) {
+                  callback();
+                } else {
+                  fallback();
                 }
-                fallback();
               }),
             ),
           );
