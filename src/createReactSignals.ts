@@ -21,6 +21,8 @@ export function createReactSignals<Args extends object[]>(
   };
   const isSignal = (x: unknown): x is Signal => !!(x as any)?.[SIGNAL];
 
+  const EMPTY = Symbol();
+
   const wrapProxy = (sub: Subscribe, get: GetValue, set: SetValue): Signal => {
     const sig = new Proxy(
       (() => {
@@ -37,14 +39,32 @@ export function createReactSignals<Args extends object[]>(
           if (valueProp && prop === fallbackValueProp) {
             prop = valueProp;
           }
+          let value: unknown | typeof EMPTY = EMPTY;
           return wrapProxy(
-            sub,
+            (callback) =>
+              sub(() => {
+                try {
+                  const obj = get() as any;
+                  const prevValue = value;
+                  value = obj[prop];
+                  if (
+                    typeof value !== 'function' &&
+                    Object.is(prevValue, value)
+                  ) {
+                    return;
+                  }
+                } catch (e) {
+                  // NOTE shouldn't we catch all errors?
+                }
+                callback();
+              }),
             () => {
               const obj = get() as any;
-              if (typeof obj[prop] === 'function') {
-                return obj[prop].bind(obj);
+              value = obj[prop];
+              if (typeof value === 'function') {
+                return value.bind(obj);
               }
-              return obj[prop];
+              return value;
             },
             (path, val) => {
               set([prop, ...path], val);
