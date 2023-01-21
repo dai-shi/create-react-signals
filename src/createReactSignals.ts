@@ -177,10 +177,16 @@ export function createReactSignals<Args extends object[]>(
       }
       // NOTE it would be nicer if we can batch callbacks
       if (signalsInChildren.length) {
-        const callback = () =>
-          applyProps(instance, {
-            children: fillAllSignalValues(children).join(''),
-          });
+        const callback = () => {
+          try {
+            applyProps(instance, {
+              children: fillAllSignalValues(children).join(''),
+            });
+          } catch (e) {
+            // NOTE shouldn't we catch all errors?
+            fallback();
+          }
+        };
         signalsInChildren.forEach((sig) =>
           unsubs.push(
             subscribeSignal(sig, () => {
@@ -197,10 +203,16 @@ export function createReactSignals<Args extends object[]>(
       Object.entries(props || {}).forEach(([key, val]) => {
         const sigs = signalsInProps[key];
         if (sigs) {
-          const callback = () =>
-            applyProps(instance, {
-              [key]: fillAllSignalValues(val),
-            });
+          const callback = () => {
+            try {
+              applyProps(instance, {
+                [key]: fillAllSignalValues(val),
+              });
+            } catch (e) {
+              // NOTE shouldn't we catch all errors?
+              fallback();
+            }
+          };
           sigs.forEach((sig) =>
             unsubs.push(
               subscribeSignal(sig, () => {
