@@ -10,14 +10,14 @@ type GetValue = () => unknown;
 type SetValue = (path: (string | symbol)[], value: unknown) => void;
 
 export function createReactSignals<Args extends object[]>(
-  createSignal: (...args: Args) => [Subscribe, GetValue, SetValue],
+  createSignal: (...args: Args) => readonly [Subscribe, GetValue, SetValue],
   valueProp?: string | symbol,
   fallbackValueProp?: string | symbol,
   handlePromise?: (promise: Promise<unknown>) => unknown,
 ) {
   const SIGNAL = Symbol('REACT_SIGNAL');
   type Signal = {
-    [SIGNAL]: [Subscribe, GetValue, SetValue];
+    [SIGNAL]: readonly [Subscribe, GetValue, SetValue];
   };
   const isSignal = (x: unknown): x is Signal => !!(x as any)?.[SIGNAL];
 
