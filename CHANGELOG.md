@@ -1,6 +1,8 @@
 # Change Log
 
 ## [Unreleased]
+### Changed
+- refactor: improve types #8
 
 ## [0.6.0] - 2023-01-21
 ### Added
