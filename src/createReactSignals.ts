@@ -270,7 +270,7 @@ export function createReactSignals<Args extends object[]>(
     return listChanged ? list : state;
   };
 
-  const Rerenderer = ({
+  const SignalsRerenderer = ({
     uncontrolled,
     signals,
     render,
@@ -345,7 +345,7 @@ export function createReactSignals<Args extends object[]>(
       }
       return propsToReturn;
     };
-    return createElementOrig(Rerenderer as any, {
+    return createElementOrig(SignalsRerenderer as any, {
       uncontrolled: typeof type === 'string' && !hasNonDisplayableChildren,
       signals: [...signalsInChildren, ...allSignalsInProps],
       render: (uncontrolledFallback: (() => void) | false) =>
