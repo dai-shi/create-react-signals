@@ -3,6 +3,7 @@
 ## [Unreleased]
 ### Changed
 - refactor: improve types #8
+- fix: avoid infinite loop #9
 
 ## [0.6.0] - 2023-01-21
 ### Added

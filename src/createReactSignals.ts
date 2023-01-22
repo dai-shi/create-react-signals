@@ -128,17 +128,27 @@ export function createReactSignals<Args extends object[]>(
 
   // ----------------------------------------------------------------------
 
-  const findAllSignals = (x: unknown): Signal[] => {
-    if (isSignal(x)) {
-      return [x];
-    }
-    if (Array.isArray(x)) {
-      return x.flatMap(findAllSignals);
-    }
-    if (typeof x === 'object' && x !== null) {
-      return Object.values(x).flatMap(findAllSignals);
-    }
-    return [];
+  const findAllSignals = (target: unknown): Signal[] => {
+    const seen = new WeakSet();
+    const find = (x: unknown): Signal[] => {
+      if (typeof x === 'object' && x !== null) {
+        if (seen.has(x)) {
+          return [];
+        }
+        seen.add(x);
+      }
+      if (isSignal(x)) {
+        return [x];
+      }
+      if (Array.isArray(x)) {
+        return x.flatMap(find);
+      }
+      if (typeof x === 'object' && x !== null) {
+        return Object.values(x).flatMap(find);
+      }
+      return [];
+    };
+    return find(target);
   };
 
   const fillAllSignalValues = <T>(target: T): T => {
