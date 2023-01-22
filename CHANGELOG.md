@@ -1,6 +1,8 @@
 # Change Log
 
 ## [Unreleased]
+
+## [0.6.1] - 2023-01-22
 ### Changed
 - refactor: improve types #8
 - fix: avoid infinite loop #9
