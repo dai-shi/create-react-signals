@@ -1,6 +1,8 @@
 # Change Log
 
 ## [Unreleased]
+
+## [0.6.2] - 2023-01-25
 ### Changed
 - fix: improve performance especially in DEV #11
 
