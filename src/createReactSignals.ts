@@ -1,4 +1,9 @@
-import { createElement as createElementOrig, useEffect, useState } from 'react';
+import {
+  createElement as createElementOrig,
+  isValidElement,
+  useEffect,
+  useState,
+} from 'react';
 import type { ReactNode } from 'react';
 
 import { applyProps } from './applyProps';
@@ -132,6 +137,9 @@ export function createReactSignals<Args extends object[]>(
     const seen = new WeakSet();
     const find = (x: unknown): Signal[] => {
       if (typeof x === 'object' && x !== null) {
+        if (isValidElement(x)) {
+          return [];
+        }
         if (seen.has(x)) {
           return [];
         }
@@ -155,6 +163,9 @@ export function createReactSignals<Args extends object[]>(
     const seen = new WeakSet();
     const fill = (x: T): T => {
       if (typeof x === 'object' && x !== null) {
+        if (isValidElement(x)) {
+          return x;
+        }
         if (seen.has(x)) {
           return x;
         }
