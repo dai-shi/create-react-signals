@@ -1,23 +1,15 @@
 {
   "compilerOptions": {
     "strict": true,
-    "target": "es5",
-    "esModuleInterop": true,
+    "target": "esnext",
     "downlevelIteration": true,
-    "module": "esnext",
+    "esModuleInterop": true,
+    "module": "es2015",
     "moduleResolution": "node",
-    "jsx": "react",
     "allowJs": true,
-    "skipLibCheck": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noUncheckedIndexedAccess": true,
-    "exactOptionalPropertyTypes": true,
-    "sourceMap": true,
-    "baseUrl": ".",
-    "paths": {
-      "create-react-signals": ["./src"]
-    },
-    "outDir": "./dist"
+    "exactOptionalPropertyTypes": true
   }
 }
