@@ -1,9 +1,4 @@
-import {
-  createElement as createElementOrig,
-  isValidElement,
-  useEffect,
-  useState,
-} from 'react';
+import { createElement, isValidElement, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 
 import { applyProps } from './applyProps';
@@ -16,6 +11,7 @@ type SetValue = (path: (string | symbol)[], value: unknown) => void;
 
 export function createReactSignals<Args extends object[]>(
   createSignal: (...args: Args) => readonly [Subscribe, GetValue, SetValue],
+  recursive?: boolean,
   valueProp?: string | symbol,
   fallbackValueProp?: string | symbol,
   handlePromise?: (promise: Promise<unknown>) => unknown,
@@ -34,7 +30,7 @@ export function createReactSignals<Args extends object[]>(
         // empty
       }) as any,
       {
-        get(_target, prop) {
+        get(target, prop) {
           if (prop === SIGNAL) {
             return [sub, get, set];
           }
@@ -44,41 +40,48 @@ export function createReactSignals<Args extends object[]>(
           if (valueProp && prop === fallbackValueProp) {
             prop = valueProp;
           }
-          let value: unknown | typeof EMPTY = EMPTY;
-          return wrapProxy(
-            (callback) =>
-              sub(() => {
-                try {
-                  const obj = get() as any;
-                  const prevValue = value;
-                  value = obj[prop];
-                  if (
-                    typeof value !== 'function' &&
-                    Object.is(prevValue, value)
-                  ) {
-                    return;
+          if (recursive) {
+            let value: unknown | typeof EMPTY = EMPTY;
+            return wrapProxy(
+              (callback) =>
+                sub(() => {
+                  try {
+                    const obj = get() as any;
+                    const prevValue = value;
+                    value = obj[prop];
+                    if (
+                      typeof value !== 'function' &&
+                      Object.is(prevValue, value)
+                    ) {
+                      return;
+                    }
+                  } catch (e) {
+                    // NOTE shouldn't we catch all errors?
                   }
-                } catch (e) {
-                  // NOTE shouldn't we catch all errors?
+                  callback();
+                }),
+              () => {
+                const obj = get() as any;
+                value = obj[prop];
+                if (typeof value === 'function') {
+                  return value.bind(obj);
                 }
-                callback();
-              }),
-            () => {
-              const obj = get() as any;
-              value = obj[prop];
-              if (typeof value === 'function') {
-                return value.bind(obj);
-              }
-              return value;
-            },
-            (path, val) => {
-              set([prop, ...path], val);
-            },
-          );
+                return value;
+              },
+              (path, val) => {
+                set([prop, ...path], val);
+              },
+            );
+          }
+          return target[prop];
         },
-        set(_target, prop, value) {
+        set(target, prop, value) {
           if (prop === valueProp) {
             set([], value);
+            return true;
+          }
+          if (!recursive) {
+            target[prop] = value;
             return true;
           }
           return false;
@@ -315,68 +318,77 @@ export function createReactSignals<Args extends object[]>(
     return render(uncontrolledFallback);
   };
 
-  const createElement = ((type: any, props?: Props, ...children: any[]) => {
-    const signalsInChildren = children.flatMap((child) =>
-      isSignal(child) ? [child] : [],
-    );
-    const signalsInProps = Object.fromEntries(
-      Object.entries(props || {}).flatMap(([key, value]) => {
-        const sigs = findAllSignals(value);
-        if (sigs.length) {
-          return [[key, sigs]];
+  const inject = (createElementOrig: typeof createElement) => {
+    const createElementInjected = (
+      type: any,
+      props?: Props,
+      ...children: any[]
+    ) => {
+      const signalsInChildren = children.flatMap((child) =>
+        isSignal(child) ? [child] : [],
+      );
+      const signalsInProps = Object.fromEntries(
+        Object.entries(props || {}).flatMap(([key, value]) => {
+          const sigs = findAllSignals(value);
+          if (sigs.length) {
+            return [[key, sigs]];
+          }
+          return [];
+        }),
+      );
+      const allSignalsInProps = Object.values(signalsInProps).flat();
+
+      // case: no signals
+      if (!signalsInChildren.length && !allSignalsInProps.length) {
+        return createElementOrig(type, props, ...children);
+      }
+
+      const hasNonDisplayableChildren = children.some(
+        (child) =>
+          !isSignal(child) &&
+          typeof child !== 'string' &&
+          typeof child !== 'number',
+      );
+
+      // case: rerenderer
+      const getChildren = () =>
+        signalsInChildren.length
+          ? children.map((child) =>
+              isSignal(child) ? readSignal(child) : child,
+            )
+          : children;
+      const getProps = (uncontrolledFallback: (() => void) | false) => {
+        let propsToReturn = props;
+        if (allSignalsInProps.length) {
+          propsToReturn = fillAllSignalValues(props);
         }
-        return [];
-      }),
-    );
-    const allSignalsInProps = Object.values(signalsInProps).flat();
-
-    // case: no signals
-    if (!signalsInChildren.length && !allSignalsInProps.length) {
-      return createElementOrig(type, props, ...children);
-    }
-
-    const hasNonDisplayableChildren = children.some(
-      (child) =>
-        !isSignal(child) &&
-        typeof child !== 'string' &&
-        typeof child !== 'number',
-    );
-
-    // case: rerenderer
-    const getChildren = () =>
-      signalsInChildren.length
-        ? children.map((child) => (isSignal(child) ? readSignal(child) : child))
-        : children;
-    const getProps = (uncontrolledFallback: (() => void) | false) => {
-      let propsToReturn = props;
-      if (allSignalsInProps.length) {
-        propsToReturn = fillAllSignalValues(props);
-      }
-      if (uncontrolledFallback) {
-        propsToReturn = {
-          ...propsToReturn,
-          ref: register(
-            uncontrolledFallback,
-            signalsInChildren,
-            signalsInProps,
-            children,
-            props,
+        if (uncontrolledFallback) {
+          propsToReturn = {
+            ...propsToReturn,
+            ref: register(
+              uncontrolledFallback,
+              signalsInChildren,
+              signalsInProps,
+              children,
+              props,
+            ),
+          };
+        }
+        return propsToReturn;
+      };
+      return createElementOrig(SignalsRerenderer as any, {
+        uncontrolled: typeof type === 'string' && !hasNonDisplayableChildren,
+        signals: [...signalsInChildren, ...allSignalsInProps],
+        render: (uncontrolledFallback: (() => void) | false) =>
+          createElementOrig(
+            type,
+            getProps(uncontrolledFallback),
+            ...getChildren(),
           ),
-        };
-      }
-      return propsToReturn;
+      });
     };
-    return createElementOrig(SignalsRerenderer as any, {
-      uncontrolled: typeof type === 'string' && !hasNonDisplayableChildren,
-      signals: [...signalsInChildren, ...allSignalsInProps],
-      render: (uncontrolledFallback: (() => void) | false) =>
-        createElementOrig(
-          type,
-          getProps(uncontrolledFallback),
-          ...getChildren(),
-        ),
-    });
-  }) as typeof createElementOrig;
+    return createElementInjected as typeof createElement;
+  };
 
-  return { getSignal, createElement };
+  return { getSignal, inject };
 }
