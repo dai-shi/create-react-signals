@@ -1,6 +1,8 @@
 # Change Log
 
 ## [Unreleased]
+### Added
+- feat: inject api #12
 
 ## [0.6.2] - 2023-01-25
 ### Changed
