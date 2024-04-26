@@ -1,8 +1,10 @@
+/* eslint @typescript-eslint/no-explicit-any: off */
+
 import { createElement, isValidElement, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 
-import { applyProps } from './applyProps';
-import type { Props } from './applyProps';
+import { applyProps } from './applyProps.js';
+import type { Props } from './applyProps.js';
 
 type Unsubscribe = () => void;
 type Subscribe = (callback: () => void) => Unsubscribe;
@@ -25,78 +27,73 @@ export function createReactSignals<Args extends object[]>(
   const EMPTY = Symbol();
 
   const wrapProxy = (sub: Subscribe, get: GetValue, set: SetValue): Signal => {
-    const sig = new Proxy(
-      (() => {
-        // empty
-      }) as any,
-      {
-        get(target, prop) {
-          if (prop === SIGNAL) {
-            return [sub, get, set];
-          }
-          if (prop === valueProp) {
-            return get();
-          }
-          if (valueProp && prop === fallbackValueProp) {
-            prop = valueProp;
-          }
-          if (recursive) {
-            let value: unknown | typeof EMPTY = EMPTY;
-            return wrapProxy(
-              (callback) =>
-                sub(() => {
-                  try {
-                    const obj = get() as any;
-                    const prevValue = value;
-                    value = obj[prop];
-                    if (
-                      typeof value !== 'function' &&
-                      Object.is(prevValue, value)
-                    ) {
-                      return;
-                    }
-                  } catch (e) {
-                    // NOTE shouldn't we catch all errors?
-                  }
-                  callback();
-                }),
-              () => {
-                const obj = get() as any;
-                value = obj[prop];
-                if (typeof value === 'function') {
-                  return value.bind(obj);
-                }
-                return value;
-              },
-              (path, val) => {
-                set([prop, ...path], val);
-              },
-            );
-          }
-          return target[prop];
-        },
-        set(target, prop, value) {
-          if (prop === valueProp) {
-            set([], value);
-            return true;
-          }
-          if (!recursive) {
-            target[prop] = value;
-            return true;
-          }
-          return false;
-        },
-        apply(_target, _thisArg, args) {
+    const sig = new Proxy((() => {}) as any, {
+      get(target, prop) {
+        if (prop === SIGNAL) {
+          return [sub, get, set];
+        }
+        if (prop === valueProp) {
+          return get();
+        }
+        if (valueProp && prop === fallbackValueProp) {
+          prop = valueProp;
+        }
+        if (recursive) {
+          let value: unknown | typeof EMPTY = EMPTY;
           return wrapProxy(
-            sub,
-            () => (get() as any)(...args),
+            (callback) =>
+              sub(() => {
+                try {
+                  const obj = get() as any;
+                  const prevValue = value;
+                  value = obj[prop];
+                  if (
+                    typeof value !== 'function' &&
+                    Object.is(prevValue, value)
+                  ) {
+                    return;
+                  }
+                } catch (_e) {
+                  // NOTE shouldn't we catch all errors?
+                }
+                callback();
+              }),
             () => {
-              throw new Error('Cannot set a value');
+              const obj = get() as any;
+              value = obj[prop];
+              if (typeof value === 'function') {
+                return value.bind(obj);
+              }
+              return value;
+            },
+            (path, val) => {
+              set([prop, ...path], val);
             },
           );
-        },
+        }
+        return target[prop];
       },
-    );
+      set(target, prop, value) {
+        if (prop === valueProp) {
+          set([], value);
+          return true;
+        }
+        if (!recursive) {
+          target[prop] = value;
+          return true;
+        }
+        return false;
+      },
+      apply(_target, _thisArg, args) {
+        return wrapProxy(
+          sub,
+          () => (get() as any)(...args),
+          () => {
+            throw new Error('Cannot set a value');
+          },
+        );
+      },
+    });
     return sig;
   };
 
@@ -226,7 +223,7 @@ export function createReactSignals<Args extends object[]>(
             applyProps(instance, {
               children: fillAllSignalValues(children).join(''),
             });
-          } catch (e) {
+          } catch (_e) {
             // NOTE shouldn't we catch all errors?
             fallback();
           }
@@ -240,7 +237,7 @@ export function createReactSignals<Args extends object[]>(
                   callback();
                   return;
                 }
-              } catch (e) {
+              } catch (_e) {
                 // NOTE shouldn't we catch all errors?
               }
               fallback();
@@ -256,7 +253,7 @@ export function createReactSignals<Args extends object[]>(
               applyProps(instance, {
                 [key]: fillAllSignalValues(val),
               });
-            } catch (e) {
+            } catch (_e) {
               // NOTE shouldn't we catch all errors?
               fallback();
             }
@@ -270,7 +267,7 @@ export function createReactSignals<Args extends object[]>(
                     callback();
                     return;
                   }
-                } catch (e) {
+                } catch (_e) {
                   // NOTE shouldn't we catch all errors?
                 }
                 fallback();

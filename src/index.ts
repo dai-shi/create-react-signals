@@ -1,1 +1,1 @@
-export { createReactSignals } from './createReactSignals';
+export { createReactSignals } from './createReactSignals.js';
