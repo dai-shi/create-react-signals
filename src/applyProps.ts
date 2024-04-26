@@ -1,4 +1,6 @@
-import { setValueForStyles } from './vendor/react-dom';
+/* eslint @typescript-eslint/no-explicit-any: off */
+
+import { setValueForStyles } from './vendor/react-dom.js';
 
 // eslint-disable-next-line no-var
 declare var __CREATE_REACT_SIGNALS_ATTACH_PROPS: any;
